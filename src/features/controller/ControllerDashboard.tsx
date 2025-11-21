@@ -62,11 +62,11 @@ export function ControllerDashboard({
     const [isLoginOpen, setIsLoginOpen] = useState(false);
     const [isDialogOpen, setIsDialogOpen] = useState(false);
     const [newPersonName, setNewPersonName] = useState("");
-    const [selectedCounter, setSelectedCounter] = useState(counterNumber);
+    const [, setSelectedCounter] = useState(counterNumber);
     const [editingId, setEditingId] = useState<string | null>(null);
     const [editingName, setEditingName] = useState("");
     const [isPriority, setIsPriority] = useState(false);
-    const [customQueueNumber, setCustomQueueNumber] = useState("");
+    const [, setCustomQueueNumber] = useState("");
 
     // Speech synthesis
     const speechSynth = useRef<SpeechSynthesisUtterance | null>(null);
@@ -170,17 +170,17 @@ export function ControllerDashboard({
     };
 
     // Generate next queue number
-    const getNextQueueNumber = () => {
-        const waitingNumbers = queue
-            .filter(q => q.status === 'waiting')
-            .map(q => {
-                const num = parseInt(q.queueNumber.replace('P', ''));
-                return isNaN(num) ? 0 : num;
-            });
+    // const getNextQueueNumber = () => {
+    //     const waitingNumbers = queue
+    //         .filter(q => q.status === 'waiting')
+    //         .map(q => {
+    //             const num = parseInt(q.queueNumber.replace('P', ''));
+    //             return isNaN(num) ? 0 : num;
+    //         });
 
-        const maxNumber = waitingNumbers.length > 0 ? Math.max(...waitingNumbers) : 0;
-        return `P${maxNumber + 1}`;
-    };
+    //     const maxNumber = waitingNumbers.length > 0 ? Math.max(...waitingNumbers) : 0;
+    //     return `P${maxNumber + 1}`;
+    // };
 
     return (
         <div className="space-y-6">

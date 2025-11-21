@@ -177,7 +177,7 @@ export const QueueService = {
     },
 
     // Listen to all queue updates across all counters (for Display component)
-    onAnyQueueUpdate(callback: (data: any) => void) {
+    onAnyQueueUpdate() {
         // This will be used by components that need to listen to all counters
         // You'll need to subscribe to each counter individually in the component
         console.log("📢 Use onQueueUpdate with specific counterId, or subscribe to multiple counters manually");

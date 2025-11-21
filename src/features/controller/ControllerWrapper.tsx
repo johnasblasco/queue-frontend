@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { ControllerDashboard } from "./ControllerDashboard";
 import { QueueService, CounterService, socketService } from "@/services/api";
 
-const ControllerWrapper = ({ token }: { token?: string }) => {
+const ControllerWrapper = () => {
     const [queue, setQueue] = useState<any[]>([]);
     const [currentServing, setCurrentServing] = useState<any | null>(null);
     const [counterNumber, setCounterNumber] = useState<any>(1);
@@ -222,7 +222,7 @@ const ControllerWrapper = ({ token }: { token?: string }) => {
         }
     };
 
-    const handleAddPerson = async (name: string, counterNum: number) => {
+    const handleAddPerson = async (name: string) => {
         try {
             const result = await QueueService.addPerson({
                 customer_name: name,
