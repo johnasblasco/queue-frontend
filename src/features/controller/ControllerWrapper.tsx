@@ -69,7 +69,7 @@ const ControllerWrapper = ({ token }: { token?: string }) => {
             unsubscribeQueue();
             socketService.disconnect();
         };
-    }, [counterNumber]);
+    }, [counterNumber]); // Remove token dependency
 
     // Helper function to manually update queue state
     const updateQueueState = (updatedItem: any) => {

@@ -3,7 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { PhoneCall, RotateCcw, SkipForward, Users, CheckCircle2, Clock, UserPlus, Trash2, Edit2, Check, X, Printer } from "lucide-react";
+import { PhoneCall, RotateCcw, SkipForward, Users, CheckCircle2, Clock, UserPlus, Trash2, Edit2, Check, X } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -36,7 +36,7 @@ interface ControllerDashboardProps {
     onRecall: () => void;
     onSkip: (id: string) => void;
     onCounterChange: (counter: number) => void;
-    onAddPerson: (name: string, isPriority?: boolean) => void;
+    onAddPerson: (name: string, isPriority?: boolean | any) => void | any;
     onRemove: (id: string) => void;
     onComplete: (id: string) => void;
     onEditName: (id: string, newName: string) => void;
@@ -67,7 +67,6 @@ export function ControllerDashboard({
     const [editingName, setEditingName] = useState("");
     const [isPriority, setIsPriority] = useState(false);
     const [customQueueNumber, setCustomQueueNumber] = useState("");
-    const [lastAddedTicket, setLastAddedTicket] = useState<{ queueNumber: string; name: string; isPriority: boolean } | null>(null);
 
     // Speech synthesis
     const speechSynth = useRef<SpeechSynthesisUtterance | null>(null);
@@ -127,190 +126,19 @@ export function ControllerDashboard({
         }
     };
 
-    const printTicket = (queueNumber: string, name: string, isPriority: boolean) => {
-        // Create a printable ticket element
-        const printWindow = window.open('', '_blank', 'width=300,height=400');
-        if (!printWindow) {
-            alert('Please allow popups to print tickets');
-            return;
-        }
-
-        const ticketContent = `
-            <!DOCTYPE html>
-            <html>
-            <head>
-                <title>Queue Ticket</title>
-                <style>
-                    @media print {
-                        @page {
-                            margin: 0;
-                            size: 80mm 150mm;
-                        }
-                        body {
-                            margin: 0;
-                            padding: 8px;
-                            font-family: 'Courier New', monospace;
-                            font-size: 14px;
-                            width: 80mm;
-                        }
-                    }
-                    body {
-                        margin: 0;
-                        padding: 8px;
-                        font-family: 'Courier New', monospace;
-                        font-size: 14px;
-                        width: 80mm;
-                        border: 2px solid #000;
-                    }
-                    .ticket {
-                        text-align: center;
-                        padding: 10px 5px;
-                    }
-                    .header {
-                        border-bottom: 2px dashed #000;
-                        padding-bottom: 10px;
-                        margin-bottom: 10px;
-                    }
-                    .company-name {
-                        font-size: 18px;
-                        font-weight: bold;
-                        margin-bottom: 5px;
-                    }
-                    .queue-number {
-                        font-size: 32px;
-                        font-weight: bold;
-                        margin: 10px 0;
-                        color: #000;
-                    }
-                    .priority-badge {
-                        background: #ff6b6b;
-                        color: white;
-                        padding: 2px 8px;
-                        border-radius: 10px;
-                        font-size: 12px;
-                        margin: 5px 0;
-                        display: inline-block;
-                    }
-                    .info {
-                        margin: 8px 0;
-                        text-align: left;
-                        padding: 0 10px;
-                    }
-                    .info-row {
-                        display: flex;
-                        justify-content: space-between;
-                        margin: 4px 0;
-                    }
-                    .footer {
-                        border-top: 2px dashed #000;
-                        margin-top: 15px;
-                        padding-top: 10px;
-                        font-size: 12px;
-                    }
-                    .barcode {
-                        margin: 10px 0;
-                        font-family: 'Libre Barcode 128', cursive;
-                        font-size: 36px;
-                    }
-                    .thank-you {
-                        margin-top: 15px;
-                        font-weight: bold;
-                    }
-                </style>
-                <link href="https://fonts.googleapis.com/css2?family=Libre+Barcode+128&display=swap" rel="stylesheet">
-            </head>
-            <body>
-                <div class="ticket">
-                    <div class="header">
-                        <div class="company-name">SERVICE CENTER</div>
-                        <div>Queue Ticket</div>
-                    </div>
-                    
-                    <div class="queue-number">${queueNumber}</div>
-                    
-                    ${isPriority ? '<div class="priority-badge">PRIORITY</div>' : ''}
-                    
-                    <div class="info">
-                        <div class="info-row">
-                            <span>Name:</span>
-                            <span><strong>${name}</strong></span>
-                        </div>
-                        <div class="info-row">
-                            <span>Date:</span>
-                            <span>${new Date().toLocaleDateString()}</span>
-                        </div>
-                        <div class="info-row">
-                            <span>Time:</span>
-                            <span>${new Date().toLocaleTimeString()}</span>
-                        </div>
-                        <div class="info-row">
-                            <span>Waiting:</span>
-                            <span>${waitingCount + 1} ahead</span>
-                        </div>
-                    </div>
-                    
-                    <div class="barcode">*${queueNumber}*</div>
-                    
-                    <div class="footer">
-                        <div>Please wait for your number</div>
-                        <div>to be called</div>
-                        <div class="thank-you">Thank you for waiting!</div>
-                        <div style="margin-top: 5px; font-size: 10px;">
-                            ${new Date().toLocaleString()}
-                        </div>
-                    </div>
-                </div>
-            </body>
-            </html>
-        `;
-
-        printWindow.document.write(ticketContent);
-        printWindow.document.close();
-
-        // Wait for content to load then print
-        setTimeout(() => {
-            printWindow.print();
-            printWindow.close();
-        }, 250);
-    };
-
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         if (newPersonName.trim()) {
-            // Generate queue number before adding
-            const newQueueNumber = getNextQueueNumber();
-
-            // Store ticket info for printing
-            const ticketInfo = {
-                queueNumber: newQueueNumber,
-                name: newPersonName.trim(),
-                isPriority: isPriority
-            };
-
-            // Add person to queue
             onAddPerson(
                 newPersonName.trim(),
                 isPriority
             );
-
-            // Set last added ticket for printing
-            setLastAddedTicket(ticketInfo);
-
-            // Reset form
             setNewPersonName("");
             setCustomQueueNumber("");
             setIsPriority(false);
             setIsDialogOpen(false);
         }
     };
-
-    // Print ticket when lastAddedTicket changes
-    useEffect(() => {
-        if (lastAddedTicket) {
-            printTicket(lastAddedTicket.queueNumber, lastAddedTicket.name, lastAddedTicket.isPriority);
-            setLastAddedTicket(null); // Reset after printing
-        }
-    }, [lastAddedTicket]);
 
     // Reset form when dialog opens
     const handleDialogOpenChange = (open: boolean) => {
@@ -513,7 +341,7 @@ export function ControllerDashboard({
                                 <DialogHeader>
                                     <DialogTitle>Add Person to Queue</DialogTitle>
                                     <DialogDescription>
-                                        Enter the person's name and select options for the queue. A ticket will be automatically printed.
+                                        Enter the person's name and select options for the queue.
                                     </DialogDescription>
                                 </DialogHeader>
                                 <form onSubmit={handleSubmit}>
@@ -536,17 +364,9 @@ export function ControllerDashboard({
                                                 value={newPersonName}
                                                 onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewPersonName(e.target.value)}
                                                 required
-                                                autoFocus
                                             />
                                         </div>
-                                        <div className="bg-gray-50 dark:bg-gray-900 p-3 rounded-lg">
-                                            <div className="text-sm text-gray-600 dark:text-gray-400">
-                                                Next queue number: <strong>{getNextQueueNumber()}</strong>
-                                            </div>
-                                            <div className="text-xs text-gray-500 dark:text-gray-500 mt-1">
-                                                A thermal ticket will be printed automatically
-                                            </div>
-                                        </div>
+
                                     </div>
                                     <DialogFooter>
                                         <Button
@@ -557,8 +377,7 @@ export function ControllerDashboard({
                                             Cancel
                                         </Button>
                                         <Button type="submit" disabled={!newPersonName.trim()}>
-                                            <Printer className="mr-2 h-4 w-4" />
-                                            Add & Print Ticket
+                                            Add to Queue
                                         </Button>
                                     </DialogFooter>
                                 </form>

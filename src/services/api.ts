@@ -109,8 +109,9 @@ class WebSocketService {
     }
 
     disconnect() {
-        this.channels.forEach((channel, channelName) => {
+        this.channels.forEach((channelName) => {
             this.unsubscribe(channelName);
+
         });
         this.pusher?.disconnect();
         this.pusher = null;
@@ -385,7 +386,7 @@ export const CounterService = {
 // 🎯 Helper Functions (for backward compatibility)
 // ----------------------------
 
-export const addPerson = async (counterId: number, name: string, token?: string) => {
+export const addPerson = async (name: string, token?: string) => {
     if (token) setAuthToken(token);
     return QueueService.addPerson({
         customer_name: name,
