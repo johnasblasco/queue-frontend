@@ -183,7 +183,7 @@ export function ControllerDashboard({
                         font-weight: bold;
                         margin-bottom: 5px;
                     }
-                    .queue-number {
+                    .queue-name {
                         font-size: 32px;
                         font-weight: bold;
                         margin: 10px 0;
@@ -233,14 +233,13 @@ export function ControllerDashboard({
                         <div>Queue Ticket</div>
                     </div>
                     
-                    <div class="queue-number">${queueNumber}</div>
-                    
+                    <div class="queue-name">${name}</div>
                     ${isPriority ? '<div class="priority-badge">PRIORITY</div>' : ''}
                     
                     <div class="info">
                         <div class="info-row">
-                            <span>Name:</span>
-                            <span><strong>${name}</strong></span>
+                            <span>Queue Number:</span>
+                            <span><strong>${queueNumber}</strong></span>
                         </div>
                         <div class="info-row">
                             <span>Date:</span>

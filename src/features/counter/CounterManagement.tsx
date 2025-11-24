@@ -139,7 +139,7 @@ export default function CounterManagement({
                                 <h3 className="text-lg font-bold text-gray-900">{c.name}</h3>
                                 <Badge
                                     variant={c.isActive ? "default" : "secondary"}
-                                    className={c.isActive ? "bg-green-500" : "bg-gray-500"}
+                                    className={`${c.isActive ? "bg-green-500" : "bg-gray-500"} text-white p-1`}
                                 >
                                     {c.isActive ? "Active" : "Inactive"}
                                 </Badge>
@@ -160,8 +160,9 @@ export default function CounterManagement({
                                 </div>
                             </div>
 
-                            <div className="flex gap-2 mt-4">
+                            <div className="flex gap-2 mt-4 ">
                                 <Button
+                                    className="hover:cursor-pointer text-blue-600 dark:hover:bg-blue-800"
                                     size="sm"
                                     variant="outline"
                                     onClick={() => openEdit(c)}
@@ -172,14 +173,14 @@ export default function CounterManagement({
                                     size="sm"
                                     variant="outline"
                                     onClick={() => onToggleCounter(c.id)}
-                                    className={c.isActive ? "text-orange-600" : "text-green-600"}
+                                    className={`${c.isActive ? "text-orange-600 dark:hover:bg-orange-800" : "text-green-600 dark:hover:bg-green-800"} hover:cursor-pointer `}
                                 >
                                     {c.isActive ? "Deactivate" : "Activate"}
                                 </Button>
                                 <Button
                                     size="sm"
                                     variant="destructive"
-                                    className="dark:bg-red-600"
+                                    className="hover:cursor-pointer dark:bg-red-600"
                                     onClick={() => onDeleteCounter(c.id)}
                                 >
                                     Delete
