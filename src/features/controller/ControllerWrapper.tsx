@@ -110,10 +110,10 @@ const ControllerWrapper = () => {
 
     // Action handlers with immediate UI updates
     const handleCallNext = async () => {
-        if (currentServing) {
-            console.log("❌ Cannot call next - someone is already serving");
-            return;
-        }
+        // if (currentServing) {
+        //     console.log("❌ Cannot call next - someone is already serving");
+        //     return;
+        // }
         console.log("🔄 Calling next for counter:", counterNumber);
         try {
             const result = await QueueService.callNext(counterNumber);
