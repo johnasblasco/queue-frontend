@@ -1,73 +1,25 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { Volume2, Clock, Users, CheckCircle, Loader } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { useDarkMode } from "@/contexts/DarkmodeContext";
 import { QueueService, socketService, CounterService } from "@/services/api";
 
 const Display = () => {
+    // Use ref to prevent multiple simultaneous API calls
+    const isFetching = useRef(false);
     const { darkMode } = useDarkMode();
+    const [isLoading, setIsLoading] = useState(false);
+
 
     const [currentTime, setCurrentTime] = useState(new Date());
     const [counterData, setCounterData] = useState<Record<string, any>>({});
     const [allCounters, setAllCounters] = useState<any[]>([]);
 
-    // 🕒 Clock runs every second
-    useEffect(() => {
-        const timer = setInterval(() => setCurrentTime(new Date()), 1000);
-        return () => clearInterval(timer);
-    }, []);
 
-    // Load all counters
-    useEffect(() => {
-        const loadCounters = async () => {
-            try {
-                const res = await CounterService.fetchCounters();
-                if (res.success) {
-                    setAllCounters(res.data);
-                }
-            } catch (err) {
-                console.log("COUNTERS LOAD ERROR:", err);
-            }
-        };
-        loadCounters();
-    }, []);
 
-    // 🔁 WebSocket connection and real-time updates
-    useEffect(() => {
-        socketService.connect();
-
-        const loadInitialQueue = async () => {
-            try {
-                const res = await QueueService.listQueue();
-                if (res.success) {
-                    processQueueData(res.data);
-                }
-            } catch (err) {
-                console.log("QUEUE LOAD ERROR:", err);
-            }
-        };
-
-        loadInitialQueue();
-
-        const unsubscribes: (() => void)[] = [];
-        allCounters.forEach(counter => {
-            if (counter.status === 'Active') {
-                const unsubscribe = QueueService.onQueueUpdate(counter.id, (data: any) => {
-                    console.log(`🔄 Real-time update for counter ${counter.id}:`, data);
-                    loadInitialQueue();
-                });
-                unsubscribes.push(unsubscribe);
-            }
-        });
-
-        return () => {
-            unsubscribes.forEach(unsubscribe => unsubscribe());
-            socketService.disconnect();
-        };
-    }, [allCounters]);
 
     // Process queue data and organize by counter
-    const processQueueData = (data: any[]) => {
+    const processQueueData = useCallback((data: any[]) => {
         const organized: Record<string, any> = {};
 
         data.forEach((item: any) => {
@@ -130,7 +82,96 @@ const Display = () => {
         });
 
         setCounterData(organized);
-    };
+    }, []);
+
+    // Load queue data
+    const loadQueueData = useCallback(async () => {
+        if (isFetching.current) return;
+
+        isFetching.current = true;
+        try {
+            const res = await QueueService.listQueue();
+            if (res.success) {
+                processQueueData(res.data);
+            }
+        } catch (err) {
+            console.log("QUEUE LOAD ERROR:", err);
+        } finally {
+            isFetching.current = false;
+        }
+    }, [processQueueData]);
+
+
+    // 🕒 Clock runs every second
+    useEffect(() => {
+        const timer = setInterval(() => setCurrentTime(new Date()), 1000);
+        return () => clearInterval(timer);
+    }, []);
+
+    // Load all counters
+    useEffect(() => {
+        const loadCounters = async () => {
+            if (isFetching.current) return;
+
+            isFetching.current = true;
+            setIsLoading(true);
+            try {
+                const res = await CounterService.fetchCounters();
+                if (res.success) {
+                    setAllCounters(res.data);
+                }
+            } catch (err) {
+                console.log("COUNTERS LOAD ERROR:", err);
+            } finally {
+                isFetching.current = false;
+                setIsLoading(false);
+            }
+        };
+        loadCounters();
+    }, []); // Empty dependency array - run only once
+
+    // 🔁 WebSocket connection and real-time updates
+    useEffect(() => {
+        socketService.connect();
+
+        // Load initial queue data
+        loadQueueData();
+
+        const unsubscribes: (() => void)[] = [];
+
+        // Listen to global counter updates (instead of individual counters)
+        const unsubscribeGlobal = QueueService.onAllCountersUpdate((data: any) => {
+            console.log("🔄 Global update received:", data);
+            // Debounce the queue reload to prevent too many API calls
+            setTimeout(() => {
+                loadQueueData();
+            }, 500);
+        });
+        unsubscribes.push(unsubscribeGlobal);
+
+        // Only listen to individual counters if you need specific counter updates
+        // But this can create many API calls, so use sparingly
+        allCounters.slice(0, 5).forEach(counter => { // Limit to 5 counters max
+            if (counter.status === 'Active') {
+                const unsubscribe = QueueService.onQueueUpdate(counter.id, (data: any) => {
+                    console.log(`🔄 Update for counter ${counter.id}:`, data);
+                    // Use setTimeout to debounce rapid updates
+                    setTimeout(() => {
+                        loadQueueData();
+                    }, 1000);
+                });
+                unsubscribes.push(unsubscribe);
+            }
+        });
+
+        return () => {
+            console.log("🧹 Cleaning up WebSocket subscriptions");
+            unsubscribes.forEach(unsubscribe => unsubscribe());
+            // Don't disconnect WebSocket completely to avoid reconnection issues
+        };
+    }, [allCounters, loadQueueData]); // Add dependencies
+
+
 
     // Formatters
     const formatTime = (date: Date) =>

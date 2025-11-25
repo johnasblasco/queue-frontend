@@ -1,5 +1,5 @@
 // components/ControllerWrapper.tsx
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { ControllerDashboard } from "./ControllerDashboard";
 import { QueueService, CounterService, socketService } from "@/services/api";
 
@@ -10,7 +10,13 @@ const ControllerWrapper = () => {
     const [counters, setCounters] = useState([{ id: 1, name: "Counter 1", isActive: true }]);
     const [totalServedToday, setTotalServedToday] = useState(0);
 
+    // Use ref to prevent multiple loads
+    const isQueueLoading = useRef(false);
+
     const loadQueue = async () => {
+        if (isQueueLoading.current) return;
+
+        isQueueLoading.current = true;
         try {
             const data = await QueueService.listQueue(counterNumber);
             if (data.success) {
@@ -18,8 +24,23 @@ const ControllerWrapper = () => {
             }
         } catch (err) {
             console.error("Failed to fetch queue:", err);
+        } finally {
+            // Add small delay before allowing next load
+            setTimeout(() => {
+                isQueueLoading.current = false;
+            }, 1000);
         }
     };
+
+    // Throttled WebSocket handler
+    const handleQueueUpdate = useCallback((data: any) => {
+        console.log("🔄 Real-time queue update received:", data);
+        // Use setTimeout to debounce rapid updates
+        setTimeout(() => {
+            loadQueue();
+        }, 500);
+    }, [counterNumber]);
+
 
     const processQueueData = (queueData: any[]) => {
         const processedData = queueData.map((item: any) => ({
@@ -37,39 +58,38 @@ const ControllerWrapper = () => {
         setTotalServedToday(processedData.filter((q: any) => q.status === "completed").length);
     };
 
-    // WebSocket handler for real-time updates
-    const handleQueueUpdate = (data: any) => {
-        console.log("🔄 Real-time queue update received:", data);
-        loadQueue();
-    };
+
+
+    // In ControllerWrapper - CORRECTED WebSocket logic
 
     useEffect(() => {
-        // Connect to Pusher (no token needed for public channels)
         socketService.connect();
 
-        // Listen for real-time queue updates for the current counter
+        // Listen for real-time queue updates with throttling
         const unsubscribeQueue = QueueService.onQueueUpdate(counterNumber, handleQueueUpdate);
 
-        // Load initial data
-        loadQueue();
+        // Load initial data with delay
+        setTimeout(() => {
+            loadQueue();
+        }, 1000);
 
-        // Load counters
-        CounterService.fetchCounters().then(data => {
-            if (data.success) {
-                setCounters(data.data.map((counter: any) => ({
-                    id: counter.id,
-                    name: counter.counter_name,
-                    isActive: counter.status === 'Active'
-                })));
-            }
-        });
+        // Load counters with delay to avoid 429
+        setTimeout(() => {
+            CounterService.fetchCounters().then(data => {
+                if (data.success) {
+                    setCounters(data.data.map((counter: any) => ({
+                        id: counter.id,
+                        name: counter.counter_name,
+                        isActive: counter.status === 'Active'
+                    })));
+                }
+            });
+        }, 2000);
 
-        // Cleanup
         return () => {
             unsubscribeQueue();
-            socketService.disconnect();
         };
-    }, [counterNumber]); // Remove token dependency
+    }, [counterNumber, handleQueueUpdate]);
 
     // Helper function to manually update queue state
     const updateQueueState = (updatedItem: any) => {

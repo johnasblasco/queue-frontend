@@ -1,11 +1,44 @@
 // services/api.ts
 import Pusher from "pusher-js";
 import axios from "axios";
+import { throttle } from 'lodash';
+
 
 // Configuration from your Laravel .env - Pusher Cloud
 const PUSHER_APP_KEY = "b79b331575d316ac7c34";
 const PUSHER_APP_CLUSTER = "ap1";
 const API_BASE_URL = "https://api-queue.slarenasitsolutions.com/public/api";
+
+
+const pendingRequests = new Map();
+// Throttled API calls
+const throttledFetchCounters = throttle(async () => {
+    try {
+        const res = await api.get(`/counters`);
+        return res.data;
+    } catch (error: any) {
+        console.error("Fetch counters error:", error);
+        return {
+            success: false,
+            message: error.response?.data?.message || "Failed to fetch counters"
+        };
+    }
+}, 2000); // Only allow one counters call every 2 seconds
+
+const throttledListQueue = throttle(async (counterId: number | null = null) => {
+    try {
+        const endpoint = counterId ? `/queue/${counterId}` : `/queue`;
+        const res = await api.get(endpoint);
+        return res.data;
+    } catch (error: any) {
+        console.error("List queue error:", error);
+        return {
+            success: false,
+            message: error.response?.data?.message || "Failed to fetch queue"
+        };
+    }
+}, 1000); // Only allow one queue call every 1 second
+
 
 const api = axios.create({
     baseURL: API_BASE_URL,
@@ -34,26 +67,19 @@ const getStoredToken = () => {
 class WebSocketService {
     private pusher: Pusher | null = null;
     private channels: Map<string, any> = new Map();
-    private connectionCount = 0;
 
     connect() {
-        // If already connected, just increment counter
         if (this.pusher && this.connected) {
-            this.connectionCount++;
             return this.pusher;
         }
 
-        // No authentication needed for public channels
         this.pusher = new Pusher(PUSHER_APP_KEY, {
             cluster: PUSHER_APP_CLUSTER,
             forceTLS: true
-            // Remove authEndpoint since channels are public
         });
 
-        this.connectionCount = 1;
-
         this.pusher.connection.bind('connected', () => {
-            console.log("✅ Pusher connected successfully to cluster:", PUSHER_APP_CLUSTER);
+            console.log("✅ Pusher connected successfully");
         });
 
         this.pusher.connection.bind('disconnected', () => {
@@ -67,21 +93,21 @@ class WebSocketService {
         return this.pusher;
     }
 
-
     subscribe(channelName: string, eventName: string, callback: Function) {
         if (!this.pusher) {
-            console.warn("Pusher not connected, connecting now...");
             this.connect();
         }
 
         try {
-            let channel = this.channels.get(channelName);
+            const channelKey = `${channelName}-${eventName}`;
+            let channel = this.channels.get(channelKey);
+
             if (!channel) {
                 channel = this.pusher!.subscribe(channelName);
-                this.channels.set(channelName, channel);
+                this.channels.set(channelKey, channel);
 
                 channel.bind('pusher:subscription_succeeded', () => {
-                    console.log(`✅ Subscribed to channel: ${channelName}`);
+                    console.log(`✅ Subscribed to: ${channelName} for event: ${eventName}`);
                 });
 
                 channel.bind('pusher:subscription_error', (error: any) => {
@@ -90,8 +116,12 @@ class WebSocketService {
             }
 
             channel.bind(eventName, callback);
+
+            // Return unsubscribe function
             return () => {
-                channel.unbind(eventName, callback);
+                if (channel) {
+                    channel.unbind(eventName, callback);
+                }
             };
         } catch (error) {
             console.error("❌ Error subscribing to channel:", error);
@@ -99,20 +129,8 @@ class WebSocketService {
         }
     }
 
-    unsubscribe(channelName: string) {
-        const channel = this.channels.get(channelName);
-        if (channel && this.pusher) {
-            this.pusher.unsubscribe(channelName);
-            this.channels.delete(channelName);
-            console.log(`🔴 Unsubscribed from channel: ${channelName}`);
-        }
-    }
-
     disconnect() {
-        this.channels.forEach((channelName) => {
-            this.unsubscribe(channelName);
-
-        });
+        this.channels.clear();
         this.pusher?.disconnect();
         this.pusher = null;
         console.log("🔴 Pusher disconnected completely");
@@ -170,33 +188,39 @@ export async function logout() {
 // ----------------------------
 
 export const QueueService = {
-    // Real-time queue updates - CORRECTED: Your backend broadcasts to service-counter.{counter_id} channels
-    onQueueUpdate(counterId: number, callback: (data: any) => void) {
-        // Your ServiceQueueUpdated event broadcasts to: service-counter.{counter_id}
-        return socketService.subscribe(`service-counter.${counterId}`, "ServiceQueueUpdated", callback);
-    },
-
-    // Listen to all queue updates across all counters (for Display component)
-    onAnyQueueUpdate() {
-        // This will be used by components that need to listen to all counters
-        // You'll need to subscribe to each counter individually in the component
-        console.log("📢 Use onQueueUpdate with specific counterId, or subscribe to multiple counters manually");
-        return () => { }; // No-op for this generic version
-    },
-
-    // HTTP endpoints for actions
+    // Single listQueue method using the throttled fetch implementation
     async listQueue(counterId: number | null = null) {
-        try {
-            const endpoint = counterId ? `/queue/${counterId}` : `/queue`;
-            const res = await api.get(endpoint);
-            return res.data;
-        } catch (error: any) {
-            console.error("List queue error:", error);
-            return {
-                success: false,
-                message: error.response?.data?.message || "Failed to fetch queue"
-            };
-        }
+        return await throttledListQueue(counterId);
+    },
+
+    // Listen to queue updates for specific counter - CORRECTED CHANNEL NAME
+    onQueueUpdate(counterId: number, callback: (data: any) => void) {
+        // Your backend uses: service-counter.{counterId}
+        return socketService.subscribe(
+            `service-counter.${counterId}`,
+            "ServiceQueueUpdated",
+            callback
+        );
+    },
+
+    // Listen to counter-level updates (for counter stats)
+    onCounterUpdate(counterId: number, callback: (data: any) => void) {
+        // Your backend uses: service-counter.{counterId} for QueueUpdated events
+        return socketService.subscribe(
+            `service-counter.${counterId}`,
+            "QueueUpdated",
+            callback
+        );
+    },
+
+    // Listen to all counters updates (for global stats)
+    onAllCountersUpdate(callback: (data: any) => void) {
+        // Your backend uses: service-counters for QueueUpdated events  
+        return socketService.subscribe(
+            "service-counters",
+            "QueueUpdated",
+            callback
+        );
     },
 
     async addPerson(data: { customer_name: string; is_priority: boolean }) {
@@ -249,74 +273,24 @@ export const QueueService = {
                 message: error.response?.data?.message || "Failed to complete queue"
             };
         }
-    },
-
-    async skipPerson(queueId: number) {
-        try {
-            const res = await api.post(`/queue/skip/${queueId}`);
-            return res.data;
-        } catch (error: any) {
-            console.error("Skip person error:", error);
-            return {
-                success: false,
-                message: error.response?.data?.message || "Failed to skip person"
-            };
-        }
-    },
-
-    async removePerson(queueId: number) {
-        try {
-            const res = await api.delete(`/queue/remove/${queueId}`);
-            return res.data;
-        } catch (error: any) {
-            console.error("Remove person error:", error);
-            return {
-                success: false,
-                message: error.response?.data?.message || "Failed to remove person"
-            };
-        }
-    },
-
-    async editPersonName(queueId: number, newName: string) {
-        try {
-            const res = await api.put(`/queue/edit-name/${queueId}`, { customer_name: newName });
-            return res.data;
-        } catch (error: any) {
-            console.error("Edit name error:", error);
-            return {
-                success: false,
-                message: error.response?.data?.message || "Failed to edit name"
-            };
-        }
-    },
-
-    async resetQueue(counterId: number) {
-        try {
-            const res = await api.post(`/queue/reset/${counterId}`);
-            return res.data;
-        } catch (error: any) {
-            console.error("Reset queue error:", error);
-            return {
-                success: false,
-                message: error.response?.data?.message || "Failed to reset queue"
-            };
-        }
     }
 };
+
 
 // ----------------------------
 // ⚙️ Counters API - Pusher + HTTP
 // ----------------------------
-
 export const CounterService = {
-    // Real-time counter updates - CORRECTED: Your QueueUpdated event broadcasts to service-counters
+    async fetchCounters() {
+        return await throttledFetchCounters();
+    },
+    // Listen to all counters updates
     onCounterUpdate(callback: (data: any) => void) {
-        // Your QueueUpdated event broadcasts to: service-counters
         return socketService.subscribe("service-counters", "QueueUpdated", callback);
     },
 
-    // HTTP endpoints
-    async fetchCounters() {
+    // Your existing HTTP methods...
+    async fetchCountersRaw() {
         try {
             const res = await api.get(`/counters`);
             return res.data;
@@ -327,60 +301,10 @@ export const CounterService = {
                 message: error.response?.data?.message || "Failed to fetch counters"
             };
         }
-    },
-
-    async createCounter(data: { counter_name: string; prefix: string }) {
-        try {
-            const res = await api.post(`/create/counters`, data);
-            return res.data;
-        } catch (error: any) {
-            console.error("Create counter error:", error);
-            return {
-                success: false,
-                message: error.response?.data?.message || "Failed to create counter"
-            };
-        }
-    },
-
-    async updateCounter(id: number, data: any) {
-        try {
-            const res = await api.post(`/update/counters/${id}`, data);
-            return res.data;
-        } catch (error: any) {
-            console.error("Update counter error:", error);
-            return {
-                success: false,
-                message: error.response?.data?.message || "Failed to update counter"
-            };
-        }
-    },
-
-    async toggleCounter(id: number, status: string) {
-        try {
-            const res = await api.post(`/update/counters/${id}`, { status });
-            return res.data;
-        } catch (error: any) {
-            console.error("Toggle counter error:", error);
-            return {
-                success: false,
-                message: error.response?.data?.message || "Failed to toggle counter"
-            };
-        }
-    },
-
-    async deleteCounter(id: number) {
-        try {
-            const res = await api.post(`/archive/counters/${id}`);
-            return res.data;
-        } catch (error: any) {
-            console.error("Delete counter error:", error);
-            return {
-                success: false,
-                message: error.response?.data?.message || "Failed to delete counter"
-            };
-        }
     }
 };
+
+
 
 // ----------------------------
 // 🎯 Helper Functions (for backward compatibility)

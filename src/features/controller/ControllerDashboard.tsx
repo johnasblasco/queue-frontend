@@ -36,7 +36,7 @@ interface ControllerDashboardProps {
     onRecall: () => void;
     onSkip: (id: string) => void;
     onCounterChange: (counter: number) => void;
-    onAddPerson: (name: string, isPriority?: boolean) => void;
+    onAddPerson: (name: string, is_priority?: boolean) => void;
     onRemove: (id: string) => void;
     onComplete: (id: string) => void;
     onEditName: (id: string, newName: string) => void;
@@ -65,9 +65,9 @@ export function ControllerDashboard({
     const [, setSelectedCounter] = useState(counterNumber);
     const [editingId, setEditingId] = useState<string | null>(null);
     const [editingName, setEditingName] = useState("");
-    const [isPriority, setIsPriority] = useState(false);
+    const [is_priority, setIs_priority] = useState(false);
     const [, setCustomQueueNumber] = useState("");
-    const [lastAddedTicket, setLastAddedTicket] = useState<{ queueNumber: string; name: string; isPriority: boolean } | null>(null);
+    const [lastAddedTicket, setLastAddedTicket] = useState<{ queueNumber: string; name: string; is_priority: any } | null>(null);
 
     // Speech synthesis
     const speechSynth = useRef<SpeechSynthesisUtterance | null>(null);
@@ -134,7 +134,7 @@ export function ControllerDashboard({
         }
     };
 
-    const printTicket = (queueNumber: string, name: string, isPriority: boolean) => {
+    const printTicket = (queueNumber: string, name: string, isriority: boolean) => {
         // Create a printable ticket element
         const printWindow = window.open('', '_blank', 'width=300,height=400');
         if (!printWindow) {
@@ -234,7 +234,7 @@ export function ControllerDashboard({
                     </div>
                     
                     <div class="queue-name">${name}</div>
-                    ${isPriority ? '<div class="priority-badge">PRIORITY</div>' : ''}
+                    ${is_priority ? '<div class="priority-badge">PRIORITY</div>' : ''}
                     
                     <div class="info">
                         <div class="info-row">
@@ -290,13 +290,13 @@ export function ControllerDashboard({
             const ticketInfo = {
                 queueNumber: newQueueNumber,
                 name: newPersonName.trim(),
-                isPriority: isPriority
+                is_priority: is_priority
             };
 
             // Add person to queue
             onAddPerson(
                 newPersonName.trim(),
-                isPriority
+                is_priority
             );
 
             // Set last added ticket for printing
@@ -305,7 +305,7 @@ export function ControllerDashboard({
             // Reset form
             setNewPersonName("");
             setCustomQueueNumber("");
-            setIsPriority(false);
+            setIs_priority(false);
             setIsDialogOpen(false);
         }
     };
@@ -313,7 +313,7 @@ export function ControllerDashboard({
     // Print ticket when lastAddedTicket changes
     useEffect(() => {
         if (lastAddedTicket) {
-            printTicket(lastAddedTicket.queueNumber, lastAddedTicket.name, lastAddedTicket.isPriority);
+            printTicket(lastAddedTicket.queueNumber, lastAddedTicket.name, lastAddedTicket.is_priority);
             setLastAddedTicket(null); // Reset after printing
         }
     }, [lastAddedTicket]);
@@ -324,7 +324,7 @@ export function ControllerDashboard({
             setSelectedCounter(counterNumber);
             setNewPersonName("");
             setCustomQueueNumber("");
-            setIsPriority(false);
+            setIs_priority(false);
         }
         setIsDialogOpen(open);
     };
@@ -527,9 +527,10 @@ export function ControllerDashboard({
                                         <div className="flex items-center gap-2">
                                             <Checkbox
                                                 id="priority"
-                                                checked={isPriority}
-                                                onCheckedChange={(checked: boolean) => setIsPriority(checked)}
+                                                checked={is_priority}
+                                                onCheckedChange={(checked) => setIs_priority(checked === true)}
                                             />
+
                                             <Label htmlFor="priority" className="cursor-pointer">
                                                 Priority Customer
                                             </Label>

@@ -97,22 +97,22 @@ export default function CounterManagementPage() {
 
     const handleAdd = async (name: string, prefix: string) => {
         try {
-            const res = await CounterService.createCounter({ counter_name: name, prefix });
-            if (res.success) {
+            const res = await (CounterService as any).createCounter({ counter_name: name, prefix });
+            if (res?.success) {
                 toast.success("Counter created successfully!");
                 loadCounters(); // Reload to get the new counter with ID
             } else {
-                toast.error(res.message || "Error creating counter");
+                toast.error(res?.message || "Error creating counter");
             }
         } catch (error: any) {
             console.error("Add counter error:", error);
-            toast.error(error.response?.data?.message || "Error creating counter");
+            toast.error(error?.response?.data?.message || "Error creating counter");
         }
     };
 
     const handleEdit = async (id: number, name: string, prefix: string) => {
         try {
-            const res = await CounterService.updateCounter(id, { counter_name: name, prefix });
+            const res = await (CounterService as any).updateCounter(id, { counter_name: name, prefix });
             if (res.success) {
                 toast.success("Counter updated successfully!");
                 // No need to reload - WebSocket will update in real-time
@@ -127,7 +127,7 @@ export default function CounterManagementPage() {
 
     const handleDelete = async (id: number) => {
         try {
-            const res = await CounterService.deleteCounter(id);
+            const res = await (CounterService as any).deleteCounter(id);
             if (res.success) {
                 toast.success("Counter deleted successfully!");
                 // Remove from local state immediately
@@ -152,7 +152,7 @@ export default function CounterManagementPage() {
             if (!counter) return;
 
             const newStatus = counter.isActive ? "Inactive" : "Active";
-            const res = await CounterService.toggleCounter(id, newStatus);
+            const res = await (CounterService as any).toggleCounter(id, newStatus);
 
             if (res.success) {
                 toast.success(`Counter is now ${newStatus}`);
