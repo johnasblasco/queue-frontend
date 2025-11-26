@@ -3,7 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { PhoneCall, RotateCcw, SkipForward, Users, CheckCircle2, Clock, UserPlus, Trash2, Edit2, Check, X, Printer } from "lucide-react";
+import { PhoneCall, RotateCcw, SkipForward, Users, CheckCircle2, Clock, UserPlus, Trash2, Edit2, Check, X, Printer, MoveRight } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -41,6 +41,7 @@ interface ControllerDashboardProps {
     onComplete: (id: string) => void;
     onEditName: (id: string, newName: string) => void;
     onClearCompleted: () => void;
+    onMove: (id: string, targetCounterId: number, reason?: string) => void;
 }
 
 export function ControllerDashboard({
@@ -58,6 +59,7 @@ export function ControllerDashboard({
     onComplete,
     onEditName,
     onClearCompleted,
+    onMove,
 }: ControllerDashboardProps) {
     const [isLoginOpen, setIsLoginOpen] = useState(false);
     const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -68,6 +70,11 @@ export function ControllerDashboard({
     const [is_priority, setIs_priority] = useState(false);
     const [, setCustomQueueNumber] = useState("");
     const [lastAddedTicket, setLastAddedTicket] = useState<{ queueNumber: string; name: string; is_priority: any } | null>(null);
+    const [moveDialogOpen, setMoveDialogOpen] = useState(false);
+    const [selectedQueueItem, setSelectedQueueItem] = useState<QueueItem | null>(null);
+    const [targetCounterId, setTargetCounterId] = useState("");
+    const [moveReason, setMoveReason] = useState("");
+
 
     // Speech synthesis
     const speechSynth = useRef<SpeechSynthesisUtterance | null>(null);
@@ -75,6 +82,30 @@ export function ControllerDashboard({
 
     const waitingCount = queue.filter(q => q.status === "waiting").length;
     const completedCount = queue.filter(q => q.status === "completed").length;
+
+
+    const handleOpenMoveDialog = (queueItem: QueueItem) => {
+        setSelectedQueueItem(queueItem);
+        setTargetCounterId("");
+        setMoveReason("");
+        setMoveDialogOpen(true);
+    };
+
+    const handleMoveCustomer = () => {
+        if (selectedQueueItem && targetCounterId) {
+            onMove(selectedQueueItem.id, parseInt(targetCounterId), moveReason);
+            resetMoveDialog();
+        }
+    };
+
+    const resetMoveDialog = () => {
+        setMoveDialogOpen(false);
+        setSelectedQueueItem(null);
+        setTargetCounterId("");
+        setMoveReason("");
+    };
+
+
 
     // Initialize speech synthesis
     useEffect(() => {
@@ -329,10 +360,6 @@ export function ControllerDashboard({
         setIsDialogOpen(open);
     };
 
-    const startEditing = (id: string, currentName: string) => {
-        setEditingId(id);
-        setEditingName(currentName);
-    };
 
     const saveEdit = (id: string) => {
         if (editingName.trim()) {
@@ -686,14 +713,7 @@ export function ControllerDashboard({
                                                         >
                                                             <CheckCircle2 className="h-4 w-4" />
                                                         </Button>
-                                                        <Button
-                                                            size="sm"
-                                                            variant="ghost"
-                                                            onClick={() => startEditing(item.id, item.name)}
-                                                            title="Edit name"
-                                                        >
-                                                            <Edit2 className="h-4 w-4" />
-                                                        </Button>
+
                                                         <AlertDialog>
                                                             <AlertDialogTrigger asChild>
                                                                 <Button
@@ -724,14 +744,18 @@ export function ControllerDashboard({
                                                 )}
                                                 {item.status === "waiting" && (
                                                     <>
+
+                                                        {/* Move Button */}
                                                         <Button
                                                             size="sm"
                                                             variant="ghost"
-                                                            onClick={() => startEditing(item.id, item.name)}
-                                                            title="Edit name"
+                                                            onClick={() => handleOpenMoveDialog(item)}
+                                                            title="Move to another counter"
+                                                            className="text-purple-600 hover:text-purple-700"
                                                         >
-                                                            <Edit2 className="h-4 w-4" />
+                                                            <MoveRight className="h-4 w-4" />
                                                         </Button>
+
                                                         <Button
                                                             size="sm"
                                                             variant="ghost"
@@ -814,6 +838,68 @@ export function ControllerDashboard({
                     </Table>
                 </CardContent>
             </Card>
+
+            {/* dialog */}
+            <Dialog open={moveDialogOpen} onOpenChange={setMoveDialogOpen}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Move Customer to Another Counter</DialogTitle>
+                        <DialogDescription>
+                            Transfer {selectedQueueItem?.name} ({selectedQueueItem?.queueNumber}) to a different service counter.
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    <div className="grid gap-4 py-4">
+                        <div className="grid gap-2">
+                            <Label htmlFor="target-counter">Select Target Counter</Label>
+                            <Select value={targetCounterId} onValueChange={setTargetCounterId}>
+                                <SelectTrigger>
+                                    <SelectValue placeholder="Choose a counter..." />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {counters
+                                        .filter(counter => counter.id !== counterNumber && counter.isActive)
+                                        .map((counter) => (
+                                            <SelectItem key={counter.id} value={counter.id.toString()}>
+                                                {counter.name}
+                                            </SelectItem>
+                                        ))
+                                    }
+                                </SelectContent>
+                            </Select>
+                        </div>
+
+
+                        {selectedQueueItem && (
+                            <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg">
+                                <div className="text-sm font-medium">Moving:</div>
+                                <div className="text-sm text-gray-600 dark:text-gray-400">
+                                    {selectedQueueItem.name} ({selectedQueueItem.queueNumber})
+                                    <br />
+                                    from Counter {counterNumber}
+                                </div>
+                            </div>
+                        )}
+                    </div>
+
+                    <DialogFooter>
+                        <Button
+                            variant="outline"
+                            onClick={resetMoveDialog}
+                        >
+                            Cancel
+                        </Button>
+                        <Button
+                            onClick={handleMoveCustomer}
+                            disabled={!targetCounterId}
+                            className="bg-purple-600 hover:bg-purple-700"
+                        >
+                            <MoveRight className="mr-2 h-4 w-4" />
+                            Move Customer
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
 
             <div className="flex justify-center mt-4">
                 <button

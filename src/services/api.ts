@@ -163,6 +163,19 @@ export const QueueService = {
         return await throttledListQueue(counterId);
     },
 
+    async movePerson(queueId: number, data: { target_counter_id: number }) {
+        try {
+            const res = await api.post(`/queue/${queueId}/move`, data);
+            return res.data;
+        } catch (error: any) {
+            console.error("Move person error:", error);
+            return {
+                success: false,
+                message: error.response?.data?.message || "Failed to move person"
+            };
+        }
+    },
+
     // Events (match Laravel events)
     // 1) Full-list broadcast event (your QueueListUpdated)
     onQueueListUpdate(callback: (data: any) => void) {

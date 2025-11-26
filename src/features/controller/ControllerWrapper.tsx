@@ -19,6 +19,39 @@ const ControllerWrapper = () => {
         currentCounterRef.current = counterNumber;
     }, [counterNumber]);
 
+
+    const handleMove = async (queueId: string, targetCounterId: number) => {
+        try {
+            console.log("🔄 Moving queue item:", queueId, "to counter:", targetCounterId);
+
+            const result = await QueueService.movePerson(parseInt(queueId), {
+                target_counter_id: targetCounterId,
+
+            });
+
+            if (result.success) {
+                console.log("✅ Successfully moved customer:", result.message);
+
+                // Update local state to reflect the move
+                setQueue(prevQueue => prevQueue.filter(item => item.id !== queueId));
+
+                // If the moved item was currently serving, clear it
+                if (currentServing?.id === queueId) {
+                    setCurrentServing(null);
+                }
+
+                // Show success message
+                alert(`Customer moved to ${result.data?.to_counter || 'target counter'} successfully`);
+            } else {
+                console.error("❌ Failed to move customer:", result.message);
+                alert(result.message || "Failed to move customer");
+            }
+        } catch (err) {
+            console.error("🚨 Move Error:", err);
+            alert("Network error occurred while moving customer");
+        }
+    };
+
     const loadQueue = async (counterId = currentCounterRef.current) => {
         if (isQueueLoading.current) return;
 
@@ -405,6 +438,7 @@ const ControllerWrapper = () => {
             onComplete={handleComplete}
             onEditName={handleEditName}
             onClearCompleted={handleClearCompleted}
+            onMove={handleMove}
         />
     );
 }
