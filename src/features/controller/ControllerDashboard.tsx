@@ -324,7 +324,7 @@ export function ControllerDashboard({
                 is_priority: is_priority
             };
 
-            // Add person to queue
+            // Add person to queue with correct format
             onAddPerson(
                 newPersonName.trim(),
                 is_priority

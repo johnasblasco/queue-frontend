@@ -392,17 +392,24 @@ const ControllerWrapper = () => {
         }
     };
 
-    const handleAddPerson = async (name: string) => {
+    // In ControllerWrapper, update handleAddPerson:
+    const handleAddPerson = async (name: string, is_priority?: boolean | string) => {
         if (!name.trim()) {
             alert("Please enter a name");
             return;
         }
 
         try {
-            console.log("👤 Adding person:", name);
+            console.log("👤 Adding person:", name, "Priority:", is_priority);
+
+            // Convert to string "1" or "0" if it's a boolean
+            const isPriorityPayload = typeof is_priority === 'boolean'
+                ? (is_priority ? "1" : "0")
+                : is_priority; // if it's already string, use as is
+
             const result = await QueueService.addPerson({
                 customer_name: name.trim(),
-                is_priority: false
+                is_priority: isPriorityPayload
             });
 
             if (result.success) {

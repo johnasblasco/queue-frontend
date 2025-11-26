@@ -209,7 +209,7 @@ export const QueueService = {
     },
 
     // HTTP actions
-    async addPerson(data: { customer_name: string; is_priority: boolean }) {
+    async addPerson(data: { customer_name: string; is_priority: any }) {
         try {
             const res = await api.post("/queue/add-person", data);
             return res.data;
